@@ -1,4 +1,5 @@
 // line_buffer.sv
+// The Line Buffer outputs a single vertical column (a tiny slice) at every clock cycle.
 // This module is a line buffer for the SLAM system.
 // Parameterized line buffer for image streaming pipelines
 // It is used to store the current, previous, and next lines of the image.
@@ -10,17 +11,19 @@ pixel_from_row-2     = line_out[1]
 pixel_from_row-3     = line_out[2]
 ...
 */
+`timescale 1ns / 1ps
 
 module line_buffer #(
-    parameter int DATA_WIDTH = 8;
-    parameter int IMAGE_WIDTH = 640;
-    parameter int NUM_LINES = 2; // number of previous rows to store
+    parameter int DATA_WIDTH = 8,
+    parameter int IMAGE_WIDTH = 640,
+    parameter int NUM_LINES = 2 // number of previous rows to store
 ) (
     input logic clk,
+    input logic rst_n,
     input logic [DATA_WIDTH-1:0] pixel_in,
     input logic pixel_valid,
     
-    output logic [DATA_WIDTH-1:0] line_out[NUM_LINES-1:0];
+    output logic [DATA_WIDTH-1:0] line_out[NUM_LINES-1:0]
 );
 
     // Internal: NUM_LINES shift buffers, each as a FIFO of depth IMAGE_WIDTH
@@ -29,20 +32,25 @@ module line_buffer #(
 
     // COLUMN POINTER
     // pointer increments with each valid pixel
-    // if it wraps, we move to the next row, logically
-    always_ff @(posedge clk) begin   
-        if(pixel_valid) begin 
-            if (ptr == IMAGE_WIDTH-1) begin
+    // if it wraps, we move to the next row, logically\
+    localparam int PTR_WIDTH = $clog2(IMAGE_WIDTH);
+    localparam int LAST_COL_INT = IMAGE_WIDTH - 1;
+    always_ff @(posedge clk or negedge rst_n) begin  
+        if (!rst_n) begin
+            ptr <= '0;
+        end else if (pixel_valid) begin
+            
+            if (ptr == LAST_COL_INT[PTR_WIDTH-1:0]) begin //needed type casting as IMAGE_WIDTH is 32-bit integer value
                 ptr <= '0;
             end else begin
-                ptr <= ptr + 1''b1;
+                ptr <= ptr + 1'b1;
             end
         end
         // no need of else case as always_ff infer to a flip-flop, 
         // so if pixel_valid is low, wptr will hold its value
     end
 
-    // Line buffer shifting logic
+    // Line buffer shifting logic: WRITE OPERATION
     integer i;
     always_ff @(posedge clk) begin
         if (pixel_valid) begin
@@ -81,7 +89,16 @@ Cost: For a 640px wide buffer, this uses ~10,000 registers. For 1080p, it uses ~
 Code: assign line_out = linebuf[wptr];
 Problem: High-density Block RAMs are Synchronous Read (the data comes out 1 clock cycle after you provide the address). This code demands the data immediately (combinational path).
 Result: Again, this forces the tool to use LUTRAM (Distributed RAM) or Registers, which are expensive and scarce compared to Block RAM.
+
+3. if (!rst_n) begin
+            ptr <= '0;
+    
+    earlier we did not have async reset for the ptr, but we need it here since its a control signal, it has
+    to be reset initially.
+    In ASIC, its all random wake up, data we can overwrite but control has to be reset.
+    For FPGA, it was correct. 
 */
+
 
 // Resetting line_buf[][] forces register inference
 // to infer BRAM, we completely remove the reset block and the rst_n signal
