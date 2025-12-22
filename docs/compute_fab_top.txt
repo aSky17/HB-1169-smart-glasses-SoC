@@ -1,0 +1,12 @@
+compute_fabric_top.sv
+   |
+   ├── AXI to Scratchpad bridge
+   ├── Fabric Scheduler
+   ├── Scratchpad (multi-bank)
+   ├── Accelerator Cluster:
+   │       ├── Feature Extractor
+   │       ├── Matcher
+   │       ├── VPU
+   │       ├── Pose Estimator
+   │       └── Depth Engine
+   └── Interrupt/Status bus

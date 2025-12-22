@@ -72,7 +72,11 @@ module tb_line_buffer;
         rst_n = 1; //release reset
         #(CLK_PERIOD * 2); //wait for 2 clock cycles
 
+        $display("----------------------------------------------------------------");
         $display("SIMULATION START: Image Width = %0d", IMAGE_WIDTH);
+        $display("----------------------------------------------------------------");
+        $display("Time  | Pixel In (Current) | Row -1 (Line 0) | Row -2 (Line 1) | Status");
+        $display("----------------------------------------------------------------");
 
         //send 5 rows of pixels
         //each row of IMAGE_WIDTH pixels
@@ -91,7 +95,9 @@ module tb_line_buffer;
         pixel_in = '0;
 
         #(CLK_PERIOD * 10) //wait for 10 clock cycles
-        $display("SIMULATION PASS. All pixels processed successfully");
+        $display("----------------------------------------------------------------");
+        $display("SIMULATION PASS. All pixels processed successfully.");
+        $display("----------------------------------------------------------------");
         $finish;
     end
 
@@ -102,17 +108,40 @@ module tb_line_buffer;
     line_out[0] and line_out[1] contain pixels from exactly 1 row ago and 2 rows ago.
     */
     always @(posedge clk) begin
+        int curr_val;
+        string s_row1, s_row2;
+        logic [DATA_WIDTH-1:0] exp1, exp2;
+        logic [7:0] expected_row1, expected_row2;
+
         if (rst_sync && pixel_valid) begin
             // Simulation Wait: Outputs are only valid after 1 clock cycle due to registers
             // We use 'strobe' to check at the very end of the time step
             #1; //ensure all non-blocking assignment updates have settled
 
+            // --- NEW: Printing Logic Start ---
+            // Calculate the actual current pixel value being checked
+            curr_val = pixel_counter - 1;
+
+            // Determine what to print for Row -1
+            if (curr_val < IMAGE_WIDTH) 
+                s_row1 = "XX"; // Not valid yet
+            else 
+                s_row1.itoa(line_out[0]); 
+
+            // Determine what to print for Row -2
+            if (curr_val < (IMAGE_WIDTH * 2)) 
+                s_row2 = "XX"; 
+            else 
+                s_row2.itoa(line_out[1]);
+
+            // Print the values in columns
+            $write("%5t | %18d | %15s | %15s | ", $time, curr_val, s_row1, s_row2);
+
+
             //checking row-1 (line_out[0])
             // Should contain data from exactly 1 row ago (IMAGE_WIDTH cycles ago)
             // check row −1 until one full row has arrived
             if (pixel_counter > IMAGE_WIDTH) begin
-                logic [DATA_WIDTH-1:0] exp1;
-                logic [7:0] expected_row1;
                 exp1 = DATA_WIDTH'(pixel_counter - 1 - IMAGE_WIDTH); // -1 because counter incremented for next: expected = (current_pixel) - IMAGE_WIDTH
                 expected_row1 = exp1[DATA_WIDTH-1:0];
                 assert (line_out[0] === expected_row1);
@@ -123,14 +152,16 @@ module tb_line_buffer;
             //checking row-2 (line_out[1])
             //Should contain data from exactly 2 rows ago
             if (pixel_counter > (IMAGE_WIDTH * 2)) begin
-                logic [DATA_WIDTH-1:0] exp2;
-                logic [7:0] expected_row2;
                 exp2 = DATA_WIDTH'(pixel_counter - 1 - (2 * IMAGE_WIDTH));
                 expected_row2 = exp2[DATA_WIDTH-1:0];
                 assert (line_out[1] === expected_row2);
                 else $error("Time %0t: Row-2 Mismatch! Expected %0d, Got %0d", 
                             $time, expected_row2, line_out[1]);
             end
+
+            // If we reached here, everything passed for this clock cycle
+            $display("OK");
+
         end
     end
 endmodule

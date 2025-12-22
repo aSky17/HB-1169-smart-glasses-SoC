@@ -1,0 +1,294 @@
+1. Feature Extractor Accelerator
+Implements: FAST → NMS → Orientation → BRIEF/ORB Descriptor
+
+You must build the following submodules:
+
+(1) FAST Corner Detector
+
+Image line buffers (3-line or 5-line depending on window)
+
+16-pixel circle comparator (FAST-9 or FAST-12)
+
+Intensity threshold comparator
+
+Segment test logic (contiguous bright/dark pixels)
+
+Score computation (high-speed sum of absolute differences)
+
+(2) Non-Max Suppression (NMS)
+
+3×3 or 5×5 window scanning
+
+Local maxima selection
+
+Corner score buffer
+
+Coordinate output FIFO
+
+(3) Orientation Estimator
+
+Compute centroid moments (m01, m10)
+
+Use atan2 approximation (CORDIC or LUT)
+
+Output angle (quantized)
+
+(4) ORB/BRIEF Descriptor Generator
+
+Keypoint patch extraction (sampling from scratchpad)
+
+Pixel-pair comparisons (256 pairs)
+
+Bit packing into 256-bit descriptor
+
+Optional rotation-aware sampling
+
+Outputs
+
+keypoints (x,y,score,orientation)
+
+256-bit descriptors
+
+✅ 2. Descriptor Matcher
+Implements: Hamming Distance KNN search + filtering
+(1) Hamming Distance Unit
+
+XOR unit for 256-bit descriptors
+
+8×32-bit popcount trees (parallel)
+
+Final popcount accumulator
+
+(2) KNN Selector
+
+Top-2 or Top-4 minimal distance tracker
+
+Registers for best and second-best match
+
+Duplicate filter
+
+(3) Priority Queue (Optional)
+
+For large batches: min-heap or partial sort
+
+(4) Ratio Test & Geometric Filter
+
+Lowe’s ratio test
+
+Optional orientation/scale consistency
+
+Outputs
+
+matched pairs (indexA, indexB, score)
+
+✅ 3. VPU (Vector Processing Unit)
+
+A custom SIMD engine that assists the accelerators.
+
+(1) Instruction Fetch + Decoder
+
+Simple RISC-like or VLIW instruction Format
+
+Decode vector ALU ops, load/store, branch
+
+(2) Register File
+
+Vector registers (e.g., 16 × 256-bit)
+
+Scalar registers
+
+Read/write ports
+
+(3) Vector ALU
+
+Add/sub
+
+Mul (fixed-point)
+
+Min/max
+
+Dot product
+
+Absolute, threshold
+
+Bitwise ops
+
+(4) LSU (Load-Store Unit)
+
+Streaming loads (burst)
+
+Strided loads/stores
+
+Scatter/gather optional
+
+(5) Issue/Control Logic
+
+Hazard detection
+
+Pipeline control
+
+Busy/ready for scheduler
+
+✅ 4. Pose Engine
+Implements: RANSAC + PnP Fixed Point Solver
+(1) RANSAC Hypothesis Generator
+
+Random sampling FSM
+
+Keypoint pair selection
+
+Reprojection sampler
+
+(2) PnP Solver (Minimal Solver)
+
+Solve for rotation & translation using:
+
+Direct Linear Transform (DLT)
+
+Or EPnP (simplified)
+
+Use fixed-point math:
+
+Matrix multiply units
+
+Cross-product unit
+
+Dot-product unit
+
+Normalization unit
+
+(3) Inlier Counter
+
+Project points → compute error
+
+Compare against threshold
+
+Maintain best hypothesis
+
+(4) Final Pose Selection
+
+Output best R, t
+
+Confidence score
+
+✅ 5. Depth Engine (Stereo/Monocular)
+Implements: Block Matching / SAD / ZNCC
+(1) Line and Window Buffers
+
+Multi-line input buffers
+
+Window generator (9×9 or configurable)
+
+(2) Cost Computation
+
+SAD (sum of absolute differences) OR
+
+ZNCC (normalized cross-correlation)
+
+(3) Disparity Selection
+
+Winner-take-all among disparity candidates
+
+Confidence metric generation
+
+(4) Post Filters
+
+Median filter (optional)
+
+Left-right consistency check
+
+✅ 6. Tracker / Keyframe Manager
+Handles keypoint temporal consistency
+(1) Motion Prediction
+
+Constant-velocity model
+
+Predict new keypoint position (x’, y’)
+
+(2) Keypoint Lifetime Manager
+
+Mark keypoints as active/inactive
+
+Remove lost points
+
+Add new ones
+
+(3) Sorting Engine
+
+Sort keypoints by score or lifetime
+
+Use parallel compare-exchange units
+
+(4) Keyframe Selection Logic
+
+If parallax > threshold → mark keyframe
+
+✅ 7. Scratchpad Memory
+
+High-speed memory shared by all accelerators.
+
+(1) Multi-bank SRAM Architecture
+
+4 or 8 banks
+
+Bank conflict resolver
+
+2R/1W or multi-port simulation using time interleaving
+
+(2) Address Generator
+
+Row/column-based addressing
+
+Strided and block addressing
+
+(3) DMA Interface (AXI4)
+
+Reads/writes frames and descriptors
+
+✅ 8. Fabric Scheduler
+
+Controls accelerator execution.
+
+Implements:
+
+Command queue FIFO
+
+Accelerator dispatch logic
+
+Dependency checker:
+
+e.g., Feature Extractor must run before Matcher
+
+Interrupt generation
+
+Status registers
+
+Scheduler Modes
+
+Round-robin
+
+Priority-based
+
+Event-driven
+
+✅ 9. AXI Bridges
+
+Glue logic for SoC integration.
+
+(1) AXI4-Lite Control Registers
+
+write config
+
+start/stop accelerators
+
+read status
+
+(2) AXI4 Data Path
+
+frame input
+
+descriptor output
+
+(3) AXI4-Stream Bridge
+
+for feature extractor input

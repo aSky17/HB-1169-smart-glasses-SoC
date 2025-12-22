@@ -1,0 +1,84 @@
+PHASE 0: COMMON PRIMITIVES
+common/
+├── fifo.sv
+├── line_buffer.sv
+├── window_buffer.sv
+├── popcount_tree.sv
+├── add_tree.sv
+├── fixed_point_pkg.sv
+└── cordic.sv   (or LUT first)
+
+PHASE 1: FEATURE EXTRACTOR
+feature_extractor/fast/
+├── fast_circle_sampler.sv
+├── fast_thresh_cmp.sv
+├── fast_segment_test.sv
+├── fast_score.sv
+└── fast_top.sv
+feature_extractor/nms/
+├── nms_linebuf.sv
+├── nms_compare.sv
+└── nms_top.sv
+feature_extractor/orientation/
+├── orient_patch_fetch.sv
+├── orient_moment_accel.sv
+├── cordic_atan2.sv
+└── orient_top.sv
+feature_extractor/descriptor/
+├── desc_pairs_rom.sv
+├── desc_patchbuffer.sv
+├── desc_sampler.sv
+├── desc_compare_pack.sv
+└── desc_top.sv
+feature_extractor/
+├── fe_pipeline_ctrl.sv
+├── fe_regs_pkg.sv
+└── fe_top.sv
+
+PHASE 2: MATCHER
+matcher/
+├── hamming_dist.sv
+├── knn_engine.sv
+├── ratio_test.sv
+├── priority_queue.sv
+└── matcher_top.sv
+
+PHASE 3: TRACKER AND KEYFRAMES
+tracker/
+├── motion_predictor.sv
+├── keypoint_lifetime.sv
+├── keypoint_sorter.sv
+├── keyframe_selector.sv
+└── tracker_top.sv
+
+PHASE 4: DEPTH ENGINE
+depth_engine/
+├── line_buffer_reuse.sv
+├── sad_block.sv
+├── cost_volume.sv
+├── wta.sv
+└── depth_top.sv
+
+PHASE 5: POSE ENGINE 
+pose_engine/
+├── ransac_fsm.sv
+├── pnp_solver.sv
+├── inlier_counter.sv
+└── pose_top.sv
+
+PHASE 6: VPU (VECTOR ENGINE)
+vpu/
+├── vpu_decoder.sv
+├── vpu_rf.sv
+├── vpu_alu.sv
+├── vpu_lsu.sv
+├── vpu_issue.sv
+└── vpu_top.sv
+
+PHASE  7: MEMORY AND FABRIC CONTROL 
+top/
+├── fabric_scratchpad.sv
+├── fabric_scheduler.sv
+├── fabric_axi_bridge.sv
+└── compute_fabric_top.sv
+

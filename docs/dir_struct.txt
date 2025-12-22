@@ -1,0 +1,247 @@
+slam_soc/
+│
+├── hw/
+│   ├── rtl/
+│   │   ├── top/                    # SoC top-level
+│   │   │   ├── soc_top.sv
+│   │   │   ├── reset_ctrl.sv
+│   │   │   └── clock_ctrl.sv
+│   │   │
+│   │   ├── control/                # CPU subsystem
+│   │   │   ├── riscv_core/
+│   │   │   ├── boot_rom.sv
+│   │   │   ├── interrupt_ctrl.sv
+│   │   │   └── timer.sv
+│   │   │
+│   │   ├── compute_fabric/         # Accelerator cluster (your main work)
+│   │   │   ├── feature_extractor/
+│   │   │   ├── matcher/
+│   │   │   ├── tracker/
+│   │   │   ├── depth_engine/
+│   │   │   ├── pose_engine/
+│   │   │   ├── vpu/
+│   │   │   └── fabric_scheduler.sv
+│   │   │
+│   │   ├── memory/                 # Data movement
+│   │   │   ├── axi_interconnect.sv
+│   │   │   ├── dma_engine.sv
+│   │   │   ├── sram_bank.sv
+│   │   │   └── scratchpad_ctrl.sv
+│   │   │
+│   │   ├── io/                     # Sensors & peripherals
+│   │   │   ├── camera_if.sv
+│   │   │   ├── imu_if.sv
+│   │   │   └── axi_stream_bridge.sv
+│   │   │
+│   │   └── common/                 # Shared primitives
+│   │       ├── buffers/
+│   │       ├── arithmetic/
+│   │       ├── math/
+│   │       └── utils/
+│   │
+│   └── tb/                         # SoC-level verification
+│
+├── sw/
+│   ├── firmware/                   # RISC-V control code
+│   ├── drivers/
+│   └── linker/
+│
+├── docs/
+│   ├── soc_architecture.md
+│   ├── memory_map.md
+│   ├── interconnect.md
+│   └── performance_model.md
+│
+└── fpga/                           # Optional prototyping
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+compute_fabric/
+│
+├── rtl/
+│   ├── top/
+│   │   ├── compute_fabric_top.sv
+│   │   ├── fabric_scheduler.sv
+│   │   ├── fabric_axi_bridge.sv
+│   │   └── fabric_scratchpad.sv
+│   │
+│   ├── feature_extractor/
+│   │   ├── fe_top.sv
+│   │   ├── fe_fast.sv
+│   │   ├── fe_nms.sv
+│   │   ├── fe_orientation.sv
+│   │   ├── fe_descriptor.sv
+│   │   ├── fe_pipeline_ctrl.sv
+│   │   └── fe_buffer.sv
+│   │
+│   ├── matcher/
+│   │   ├── matcher_top.sv
+│   │   ├── hamming_dist.sv
+│   │   ├── knn_engine.sv
+│   │   ├── priority_queue.sv
+│   │   ├── match_filter.sv
+│   │   └── matcher_ctrl.sv
+│   │
+│   ├── vpu/
+│   │   ├── vpu_top.sv
+│   │   ├── vpu_decoder.sv
+│   │   ├── vpu_rf.sv
+│   │   ├── vpu_alu.sv
+│   │   ├── vpu_muldiv.sv
+│   │   ├── vpu_vector_unit.sv
+│   │   ├── vpu_lsu.sv
+│   │   └── vpu_issue.sv
+│   │
+│   ├── pose_engine/
+│   │   ├── pose_top.sv
+│   │   ├── ransac_engine.sv
+│   │   ├── pnp_solver.sv
+│   │   ├── math_fixed.sv
+│   │   └── pose_ctrl.sv
+│   │
+│   ├── depth_engine/
+│   │   ├── depth_top.sv
+│   │   ├── sad_block.sv
+│   │   ├── cost_volume.sv
+│   │   ├── winner_take_all.sv
+│   │   └── depth_ctrl.sv
+│   │
+│   ├── tracker/
+│   │   ├── tracker_top.sv
+│   │   ├── motion_predictor.sv
+│   │   ├── keypoint_sorter.sv
+│   │   ├── lifetime_manager.sv
+│   │   └── tracker_ctrl.sv
+│   │
+│   └── common/
+│       ├── fifo.sv
+│       ├── line_buffer.sv
+│       ├── window_buffer.sv
+│       ├── muxes.sv
+│       ├── div_fixed.sv
+│       ├── cordic.sv
+│       ├── register_file.sv
+│       └── utils.sv
+│
+├── tb/  (later for cocotb + python models)
+├── docs/
+│   ├── compute_fabric_spec.md
+│   ├── accelerator_interfaces.md
+│   └── vpu_isa.md
+└── scripts/
+    ├── Makefile
+    └── verilator_run.sh
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+compute_fabric/
+└── rtl/
+    ├── top/
+    │   ├── compute_fabric_top.sv               # top-level wrapper for compute fabric
+    │   ├── fabric_scheduler.sv                 # command queue + dispatch
+    │   ├── fabric_axi_bridge.sv                # AXI/AXIS interfaces to fabric
+    │   └── fabric_scratchpad.sv                # multi-bank SRAM controller
+    │
+    ├── feature_extractor/
+    │   ├── fe_top.sv                           # feature extractor top (connects all submodules)
+    │   ├── fe_if.sv                            # SystemVerilog interface for AXI-Stream / FIFO ports
+    │   ├── fe_pipeline_ctrl.sv                 # pipeline FSM and datapath control
+    │   ├── fe_input_if.sv                      # input pixel ingestion, sync, frame control
+    │   │
+    │   ├── fast/
+    │   │   ├── fast_top.sv                     # FAST controller, integrates circle compare + score
+    │   │   ├── fast_circle_sampler.sv          # takes 7x7/5x5 window → extracts 16 circle pixels
+    │   │   ├── fast_thresh_cmp.sv              # computes is_bright/is_dark vectors
+    │   │   ├── fast_segment_test.sv            # contiguous-run detector (9/12) using duplicated vector trick
+    │   │   └── fast_score.sv                   # SAD/popcount-based score reduction tree
+    │   │
+    │   ├── nms/
+    │   │   ├── nms_top.sv                      # NMS controller: chooses 3x3/5x5 compare
+    │   │   ├── nms_linebuf.sv                  # score line buffers (two rows)
+    │   │   └── nms_compare.sv                  # neighbor comparators and winner logic
+    │   │
+    │   ├── orientation/
+    │   │   ├── orient_top.sv                   # orientation top-level for each keypoint
+    │   │   ├── orient_patch_fetch.sv           # patch extractor: reads from scratchpad/buffer
+    │   │   ├── orient_moment_accel.sv          # compute m10, m01 accumulators (fixed-point)
+    │   │   ├── cordic_atan2.sv                 # pipelined CORDIC atan2 (or LUT wrapper option)
+    │   │   └── orient_qformat.sv               # quantization and packaging of angle
+    │   │
+    │   ├── descriptor/
+    │   │   ├── desc_top.sv                     # descriptor controller (BRIEF / ORB)
+    │   │   ├── desc_patchbuffer.sv             # local patch SRAM (configurable size)
+    │   │   ├── desc_pairs_rom.sv               # ROM of 256 sample coordinate pairs (BRIEF pattern)
+    │   │   ├── desc_rotator.sv                 # rotation logic (apply orientation to coords)
+    │   │   ├── desc_sampler.sv                 # sample pixel values (with bilinear interp optional)
+    │   │   ├── desc_compare_pack.sv            # compare units + bit-packer (parallel lanes)
+    │   │   └── desc_outfifo.sv                 # descriptor output FIFO (256-bit wide)
+    │   │
+    │   ├── fe_buffer.sv                        # generic frame/window buffers used by blocks
+    │   └── fe_regs_pkg.sv                      # CSR addresses, parameter packages
+    │
+    ├── matcher/                                # (separate; referenced by fe outputs)
+    │   └── ...
+    │
+    ├── vpu/
+    │   └── ...
+    │
+    └── common/
+        ├── arithmetic/
+        │   ├── fixed_point_pkg.sv             # global fixed-point Q-format helpers/macros
+        │   ├── add_tree.sv                    # parallel reduction adders
+        │   ├── mult_pipe.sv                   # pipelined multiplier wrapper
+        │   └── div_fixed.sv                   # non-restoring or pipelined divider
+        │
+        ├── mem/
+        │   ├── dual_port_sram.sv              # parameterized SRAM wrapper (synthesis friendly)
+        │   ├── multi_bank_scratchpad.sv       # bank arbiter + conflict resolver
+        │   └── line_buffer.sv                 # shift-line buffer for image streaming
+        │
+        ├── buffers/
+        │   ├── fifo.sv                        # parameterized synchronous FIFO
+        │   ├── sync_fifo.sv                   # clock-crossing FIFO if needed
+        │   ├── window_buffer.sv               # NxN sliding window generator
+        │   └── circular_shiftreg.sv           # for duplicated vector trick (FAST)
+        │
+        ├── math/
+        │   ├── cordic.sv                      # pipelined CORDIC engine (sine/cos/atan2)
+        │   ├── sqrt_pipe.sv                   # pipelined sqrt if needed for normalization
+        │   └── popcount_tree.sv               # efficient popcount for 32/64-bit lanes
+        │
+        ├── utils/
+        │   ├── packer.sv                      # bit packing helpers (e.g., pack 8×32 -> 256)
+        │   ├── roms.sv                        # small ROM macro (pattern ROM loader)
+        │   ├── register_file.sv               # small regfile for small controllers
+        │   └── enums.sv                       # enumerations, common parameters
+        │
+        └── tb_sigs.sv                         # standardized testbench signal definitions
