@@ -191,18 +191,3 @@ Interfaces the SoC with external sensors.
 - Real-time ingestion of visual and inertial data
 - Sensor-to-compute streaming
 
-
-
-
-## Architecture
-HB-1169 consists of:
-
- -> CVA6 RISC-V Core (RV64IMAFC) — 64-bit Linux-capable main core. </br>
- -> SLAM Compute Fabric — Cluster of compute engines for domain-specific SLAM workloads. </br>
- -> System SRAM / DRAM Interface </br>
- -> AXI Interconnect — Connects CPU, fabric, and memory. </br>
- -> Ibex Controller — For always-on IMU and power management tasks. </br>
-
-<p>
-  <img src="docs\arch_overview.png" width="350" title="architecture overview">
-</p>
