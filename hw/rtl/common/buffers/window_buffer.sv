@@ -15,7 +15,7 @@ module window_buffer #(
     input logic [DATA_WIDTH-1:0] pixel_in,
 
     //from line buffer
-    input logic [DATA_WIDTH-1:0] line_out[WIN_SIZE-2:0];
+    input logic [DATA_WIDTH-1:0] line_out[WIN_SIZE-2:0],
 
     output logic [DATA_WIDTH-1:0] window_out [WIN_SIZE-1:0][WIN_SIZE-1:0],
     output logic window_valid
@@ -24,15 +24,17 @@ module window_buffer #(
     localparam int H_CNT_WIDTH = $clog2(IMAGE_WIDTH);
 
     //shift_registers
-    logic [DATA_WIDTH] shift_reg [WIN_SIZE-1:0][WIN_SIZE-1:0];
+    logic [DATA_WIDTH-1:0] shift_reg [WIN_SIZE-1:0][WIN_SIZE-1:0];
     logic [H_CNT_WIDTH-1:0] h_cnt;
 
     // Column counter
+    localparam int PTR_WIDTH = $clog2(IMAGE_WIDTH);
+    localparam int LAST_COL_INT = IMAGE_WIDTH - 1;
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n)
             h_cnt <= '0;
         else if (pixel_valid) begin
-            if (h_cnt == IMAGE_WIDTH-1)
+            if (h_cnt == LAST_COL_INT[PTR_WIDTH-1:0])
                 h_cnt <= '0;
             else
                 h_cnt <= h_cnt + 1'b1;
@@ -72,11 +74,14 @@ module window_buffer #(
     endgenerate
 
     // Window valid
+    localparam logic [H_CNT_WIDTH-1:0] WIN_START_THRESHOLD = (H_CNT_WIDTH)'(WIN_SIZE - 1);
+    // Window valid: It should ONLY be high if pixel_valid is currently high
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n)
             window_valid <= 1'b0;
-        else if (pixel_valid)
-            window_valid <= (h_cnt >= WIN_SIZE-1);
+        else
+            // Added pixel_valid here to ensure the signal drops when the stream stops
+            window_valid <= pixel_valid && (h_cnt >= WIN_START_THRESHOLD);
     end
     
 endmodule
