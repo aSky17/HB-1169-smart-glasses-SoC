@@ -22,7 +22,7 @@
 
 `timescale  1ns / 1ps
 module fast_circle_sampler #(
-    parameter int DATA_WIDTH = 8;
+    parameter int DATA_WIDTH = 8
 ) (
     input logic clk, 
     input logic rst_n,
