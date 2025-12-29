@@ -35,6 +35,53 @@ module fast_circle_sampler #(
     output logic [DATA_WIDTH-1:0] circle_pixel[0:15] 
 );
 
+    logic [DATA_WIDTH-1:0] center_c;
+    logic [DATA_WIDTH-1:0] circle_c[0:15];
+
+    always_comb begin
+
+        //center pixel is at (3,3)
+        center_c = window[3][3];
+        
+        //Bresenham circle: 16 pixels , radius = 3 i.e., 7x7 ka window
+        circle_c[0] = window[0][3];
+        circle_c[1]  = window[0][4];
+        circle_c[2]  = window[1][5];
+        circle_c[3]  = window[2][6];
+        circle_c[4]  = window[3][6];
+        circle_c[5]  = window[4][6];
+        circle_c[6]  = window[5][5];
+        circle_c[7]  = window[6][4];
+        circle_c[8]  = window[6][3];
+        circle_c[9]  = window[6][2];
+        circle_c[10] = window[5][1];
+        circle_c[11] = window[4][0];
+        circle_c[12] = window[3][0];
+        circle_c[13] = window[2][0];
+        circle_c[14] = window[1][1];
+        circle_c[15] = window[0][2];
+    end
     
+    //registering the outputs
+    integer i;
+    always_ff @( posedge clk or negedge rst_n ) begin
+        if (!rst_n) begin
+            center_pixel <= '0;
+            circle_valid <= 1'b0;
+            for (i = 0; i < 16;i++ ) begin
+                circle_pixel[i] <= '0;
+            end
+        end else begin
+            circle_valid <= window_valid;
+
+            if (window_valid) begin
+
+                center_pixel <= center_c;
+                for (i = 0; i < 16;i++ ) begin
+                    circle_pixel[i] <= circle_c[i];
+                end 
+            end
+        end
+    end
     
 endmodule
