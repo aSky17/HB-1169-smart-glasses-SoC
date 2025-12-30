@@ -48,6 +48,9 @@ module tb_fast_circle_sampler;
         int r, c;
         int errors = 0;
 
+        $dumpfile("fast_circle_sampler.vcd");
+        $dumpvars(0, tb_fast_circle_sampler);
+
         // Init
         clk = 0;
         rst_n = 0;
