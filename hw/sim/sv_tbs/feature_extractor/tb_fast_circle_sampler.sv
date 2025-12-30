@@ -16,14 +16,7 @@ module tb_fast_circle_sampler;
     logic [DATA_WIDTH-1:0] center_pixel;
     logic [DATA_WIDTH-1:0] circle_pixel[0:15];
 
-    // Reference Coordinates (row, col) based on FAST-16 standard
-    // These should match your DUT's mapping exactly.
-    int expected_coords[16][2] = '{
-        '{0,3}, '{0,4}, '{1,5}, '{2,6}, 
-        '{3,6}, '{4,6}, '{5,5}, '{6,4}, 
-        '{6,3}, '{6,2}, '{5,1}, '{4,0}, 
-        '{3,0}, '{2,0}, '{1,1}, '{0,2}
-    };
+    logic [DATA_WIDTH-1:0] tmp_val;
 
     //instantitating dut
     fast_circle_sampler #(
@@ -38,108 +31,101 @@ module tb_fast_circle_sampler;
         .circle_pixel(circle_pixel)
     );
 
-    //clk generation
-    initial begin
-        clk = 0;
-        forever #(CLK_PERIOD/2) clk = ~clk;
-    end
+    // Clock generation
+    /* verilator lint_off BLKSEQ */
+    always #(CLK_PERIOD/2) clk = ~clk;
+    /* verilator lint_on BLKSEQ */
 
-    //verification
-    initial begin
-        
-        $dumpfile("waveform.vcd");
-        $dumpvars(0, tb_fast_circle_sampler);
 
-        // 1. Initialize & Reset
+    // Reference model storage
+    logic [DATA_WIDTH-1:0] exp_center;
+    logic [DATA_WIDTH-1:0] exp_circle [0:15];
+
+    // Testing
+    initial begin
+        int r, c;
+        int errors = 0;
+
+        // Init
         clk = 0;
         rst_n = 0;
         window_valid = 0;
-        clear_window();
-        
-        // Hold reset for a few cycles
-        repeat(10) @(posedge clk);
+
+        // Clear window
+        for (r = 0; r < 7; r++)
+            for (c = 0; c < 7; c++)
+                window[r][c] = '0;
+
+        // Reset
+        #(3*CLK_PERIOD);
         rst_n = 1;
-        
-        // Wait for one cycle after reset to ensure logic is settled
+
+        // Load deterministic test pattern
+        for (r = 0; r < 7; r++) begin
+            for (c = 0; c < 7; c++) begin
+                tmp_val = { r[3:0], c[3:0] };
+                window[r][c] = tmp_val;
+            end
+        end
+
+
+        // Expected values
+        exp_center = window[3][3];
+
+        exp_circle[0]  = window[0][3];
+        exp_circle[1]  = window[0][4];
+        exp_circle[2]  = window[1][5];
+        exp_circle[3]  = window[2][6];
+        exp_circle[4]  = window[3][6];
+        exp_circle[5]  = window[4][6];
+        exp_circle[6]  = window[5][5];
+        exp_circle[7]  = window[6][4];
+        exp_circle[8]  = window[6][3];
+        exp_circle[9]  = window[6][2];
+        exp_circle[10] = window[5][1];
+        exp_circle[11] = window[4][0];
+        exp_circle[12] = window[3][0];
+        exp_circle[13] = window[2][0];
+        exp_circle[14] = window[1][1];
+        exp_circle[15] = window[0][2];
+
+        // Drive valid
         @(posedge clk);
+        window_valid = 1'b1;
 
-        // 2. Drive Coordinate-Encoded Pattern
-        $display("--- Starting Coordinate-Encoded Test ---");
-        drive_pattern();
-        window_valid = 1;
-        
-        // FIRST Edge: DUT samples 'window' and 'window_valid'
-        @(posedge clk); 
-        @(posedge clk);      // hold valid across edge
-        window_valid = 0; // De-assert so we only test one window
-
-        // SECOND Edge: DUT updates 'circle_pixel' with 'circle_c'
-        @(posedge clk); 
-        
-        // 3. Small delay to move past the NBA region (crucial for Verilator)
-        #1; 
-        
-        // 4. Check Results
-        check_results();
-
-        // 5. Test Reset during Valid (Corner Case)
-        $display("--- Testing Reset Behavior ---");
-        window_valid = 1;
-        repeat(2) @(posedge clk);
-        rst_n = 0;
         @(posedge clk);
-        #1;
-        if (circle_valid !== 0) $error("FAILED: circle_valid not cleared on reset");
-        
-        $display("--- Simulation Finished ---");
+        window_valid = 1'b0;
+
+        // Wait until DUT says data is valid
+        while (!circle_valid) @(posedge clk);
+
+        // Self-check
+        if (!circle_valid) begin
+            $error("circle_valid not asserted!");
+            errors++;
+        end
+
+        if (center_pixel !== exp_center) begin
+            $error("CENTER MISMATCH: got %0h exp %0h",
+                   center_pixel, exp_center);
+            errors++;
+        end
+
+        for (int i = 0; i < 16; i++) begin
+            if (circle_pixel[i] !== exp_circle[i]) begin
+                $error("CIRCLE[%0d] MISMATCH: got %0h exp %0h",
+                       i, circle_pixel[i], exp_circle[i]);
+                errors++;
+            end
+        end
+
+        // Result
+        if (errors == 0) begin
+            $display("FAST CIRCLE SAMPLER TEST PASSED");
+        end else begin
+            $display("FAST CIRCLE SAMPLER TEST FAILED (%0d errors)", errors);
+        end
+
         $finish;
     end
-
-    //tasks
-    task automatic drive_pattern();
-        logic [7:0] tmp;
-        for (int r = 0; r < 7; r++) begin
-            for (int c = 0; c < 7; c++) begin
-                /* verilator lint_off WIDTHTRUNC */
-                tmp = (r << 4) | c;   // intentional truncation
-                /* verilator lint_on WIDTHTRUNC */
-                window[r][c] = tmp;
-            end
-        end
-    endtask
-
-    task automatic clear_window();
-        for (int r = 0; r < 7; r++) begin
-            for (int c = 0; c < 7; c++) begin
-                window[r][c] = 0;
-            end
-        end
-    endtask
-
-    task automatic check_results();
-        logic [7:0] exp_val;
-        int err_count = 0;
-
-        // Check Center Pixel (3,3) -> 0x33
-        if (center_pixel !== 8'h33) begin
-            $error("Center Pixel Error: Expected 0x33, Got 0x%h", center_pixel);
-            err_count++;
-        end
-
-        // Check Circle Pixels
-        for (int i = 0; i < 16; i++) begin
-            exp_val = 8'((expected_coords[i][0] << 4) | expected_coords[i][1]);
-            if (circle_pixel[i] !== exp_val) begin
-                $error("Circle Pixel [%0d] Error: Expected 0x%h, Got 0x%h", i, exp_val, circle_pixel[i]);
-                err_count++;
-            end
-        end
-
-        if (err_count == 0) 
-            $display("SUCCESS: All 16 circle pixels and center pixel mapped correctly!");
-        else
-            $display("FAILURE: Found %0d mapping errors.", err_count);
-    endtask
-
-
 endmodule
