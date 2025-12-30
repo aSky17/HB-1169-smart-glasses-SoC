@@ -2,6 +2,8 @@
 
 module tb_fast_circle_sampler;
 
+    localparam bit DEBUG = 1'b1;
+
     //parameters
     parameter int DATA_WIDTH = 8;
     parameter int CLK_PERIOD = 10; 
@@ -68,6 +70,18 @@ module tb_fast_circle_sampler;
             end
         end
 
+        if (DEBUG) begin
+            $display("\n================ WINDOW (7x7) ================");
+            for (r = 0; r < 7; r++) begin
+                $write("Row %0d : ", r);
+                for (c = 0; c < 7; c++) begin
+                    $write("%02h ", window[r][c]);
+                end
+                $write("\n");
+            end
+            $display("==============================================\n");
+        end
+
 
         // Expected values
         exp_center = window[3][3];
@@ -89,6 +103,16 @@ module tb_fast_circle_sampler;
         exp_circle[14] = window[1][1];
         exp_circle[15] = window[0][2];
 
+        if (DEBUG) begin
+            $display("Expected Center Pixel : %02h", exp_center);
+            $display("Expected FAST-16 Circle Pixels:");
+            for (int i = 0; i < 16; i++) begin
+                $display("  EXP[%0d] = %02h", i, exp_circle[i]);
+            end
+            $display("");
+        end
+
+
         // Drive valid
         @(posedge clk);
         window_valid = 1'b1;
@@ -98,6 +122,19 @@ module tb_fast_circle_sampler;
 
         // Wait until DUT says data is valid
         while (!circle_valid) @(posedge clk);
+
+        if (DEBUG) begin
+            $display("\n========= DUT OUTPUT @ time %0t =========", $time);
+            $display("circle_valid = %0b", circle_valid);
+            $display("Center Pixel (DUT) = %02h", center_pixel);
+
+            $display("FAST-16 Circle Pixels (DUT):");
+            for (int i = 0; i < 16; i++) begin
+                $display("  DUT[%0d] = %02h", i, circle_pixel[i]);
+            end
+            $display("==========================================\n");
+        end
+
 
         // Self-check
         if (!circle_valid) begin
@@ -125,7 +162,6 @@ module tb_fast_circle_sampler;
         end else begin
             $display("FAST CIRCLE SAMPLER TEST FAILED (%0d errors)", errors);
         end
-
         $finish;
     end
 endmodule
