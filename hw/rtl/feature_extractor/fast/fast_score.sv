@@ -63,9 +63,9 @@ module fast_score #(
 
     integer j;
     always_comb begin
+        diff = '0;
         //initializing score to max
         score_c = {DATA_WIDTH{1'b1}};
-
         if (!is_corner_r) begin
             score_c = '0;
         end else begin
