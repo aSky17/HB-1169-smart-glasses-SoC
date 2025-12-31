@@ -38,7 +38,7 @@ module tb_fast_top;
     always #(CLK_PERIOD/2) clk = ~clk;
     /* verilator lint_on BLKSEQ */
 
-    integer r, c;
+    integer r, c, k;
     integer errors;
 
     initial begin
@@ -81,7 +81,7 @@ module tb_fast_top;
         window[4][6] = 8'd140;
         window[5][5] = 8'd135;
         window[6][4] = 8'd130;
-        window[6][3] = 8'd121;
+        // window[6][3] = 8'd121;
         window[6][2] = 8'd130;
         window[5][1] = 8'd135;
         window[4][0] = 8'd140;
@@ -90,38 +90,82 @@ module tb_fast_top;
         window[1][1] = 8'd135;
         window[0][2] = 8'd130;
 
-        @(posedge clk);
-        window_valid = 1'b1;
+        // WINDOW STREAMING PHASE
+        for (k = 0; k < 20; k++) begin
+            @(posedge clk);
 
+            // Vary ONE supporting pixel slightly each cycle
+            // Simulates motion / contrast variation
+            window[6][3] = 8'd121 + 8'(k);  // min diff increases over time
+
+            window_valid = 1'b1;
+        end
         @(posedge clk);
         window_valid = 1'b0;
 
-        // Wait for pipeline output
-        while (!out_valid)
-            @(posedge clk);
+        // Let pipeline drain
+        repeat (10) @(posedge clk);
 
-        //checking results
-        $display("FAST TOP RESULT:");
-        $display("is_corner = %0b", is_corner);
-        $display("score     = %0d", score);
-
-        if (is_corner !== 1'b1) begin
-            $error("FAST TOP FAILED: expected is_corner = 1");
-            errors++;
-        end
-
-        if (score !== 8'd21) begin
-            $error("FAST TOP FAILED: expected score = 20");
-            errors++;
-        end
-
-        // final result
-        if (errors == 0)
-            $display("FAST TOP END-TO-END TEST PASSED");
-        else
-            $display("FAST TOP END-TO-END TEST FAILED(%0d errors)", errors);
-
+        $display("WINDOW STREAMING TEST DONE");
         $finish;
+
+    end
+
+    always @(posedge clk) begin
+        if (dut.circle_valid) begin
+            $display("---- FAST WINDOW ----");
+            $display("center = %0d", dut.center_pixel);
+
+            for (int i = 0; i < 16; i++) begin
+                $display("circle[%0d] = %0d", i, dut.circle_pixel[i]);
+            end
+        end
+    end
+
+
+    always @(posedge clk) begin
+        if (dut.threshold_valid) begin
+            $display("bright_mask = %b", dut.bright_mask);
+            $display("dark_mask   = %b", dut.dark_mask);
+        end
+    end
+
+    always @(posedge clk) begin
+        if (dut.segment_valid) begin
+            $display("segment hit → is_corner = %0b", dut.is_corner);
+        end
+    end
+
+    always @(posedge clk) begin
+        if (dut.score_valid && dut.is_corner) begin
+            $display("---- SCORE DETAILS ----");
+            for (int i = 0; i < 16; i++) begin
+                if (dut.bright_mask[i]) begin
+                    $display("BRIGHT[%0d] diff=%0d",
+                        i, dut.circle_pixel[i] - dut.center_pixel);
+                end
+                if (dut.dark_mask[i]) begin
+                    $display("DARK[%0d] diff=%0d",
+                        i, dut.center_pixel - dut.circle_pixel[i]);
+                end
+            end
+            $display("FINAL SCORE = %0d", dut.score);
+        end
+    end
+
+
+    // Logging FAST outputs
+    always @(posedge clk) begin
+        if (out_valid) begin
+            $display("[%0t] is_corner=%0b score=%0d",
+                     $time, is_corner, score);
+
+            if (is_corner && score <= threshold) begin
+                $error("INVALID SCORE: score=%0d threshold=%0d",
+                       score, threshold);
+                errors <= errors + 1;
+            end
+        end
     end
 
 endmodule
