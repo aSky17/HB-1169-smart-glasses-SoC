@@ -19,6 +19,7 @@
 // - Top-level Non-Maximum Suppression for FAST keypoints
 // - Uses center-delay strategy with common line_buffe
 
+`include "line_buffer.sv"
 `timescale 1ns / 1ps
 
 module nms_top #(
@@ -48,17 +49,20 @@ module nms_top #(
     // x,y counters (stream position)
     logic [X_WIDTH-1:0] x_cnt;
     logic [Y_WIDTH-1:0] y_cnt;
+    
+    localparam int LAST_X_INT = IMAGE_WIDTH  - 1;
+    localparam int LAST_Y_INT = IMAGE_HEIGHT - 1;
 
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
             x_cnt <= '0;
             y_cnt <= '0;
         end else if (pixel_valid) begin
-            if (x_cnt == IMAGE_HEIGHT-1) begin
+            if (int'(x_cnt) == LAST_X_INT) begin
                 x_cnt <= '0;
                 y_cnt <= y_cnt + 1'b1;
             end else begin
-                x_cnt = x_cnt + 1'b1;
+                x_cnt <= x_cnt + 1'b1;
             end
         end
     end
@@ -99,7 +103,7 @@ module nms_top #(
             //insert newest column
             row0[2] <= previous_row_scores[0]; // (x,y-1)
             row1[2] <= previous_row_scores[1]; // delayed center row
-            row2[2] <= previous_row_scores[2]; // (x, y+1)
+            row2[2] <= score_in; // (x, y+1)
         end
     end
 
@@ -118,6 +122,8 @@ module nms_top #(
             center_y_d <= y_cnt - 1'b1;  // current input is row y+1, center is y
         end
     end
+
+    logic [SCORE_WIDTH-1:0] neighbor [0:7];
 
     // assemble neighbor scores for comparator
     assign neighbor[0] = row0[0]; // top-left
@@ -149,9 +155,9 @@ module nms_top #(
             nms_valid <= pixel_valid &&
                          center_is_max && 
                          (center_x_d > 0) &&
-                         (center_x_d < IMAGE_WIDTH-1) &&
+                         (int'(center_x_d) < LAST_X_INT) &&
                          (center_y_d > 0) &&
-                         (center_y_d < IMAGE_HEIGHT-1);
+                         (int'(center_y_d) < LAST_Y_INT);
 
             if (nms_valid) begin
                 nms_score <= center_score_d;
