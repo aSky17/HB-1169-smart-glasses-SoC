@@ -187,7 +187,6 @@ compute_fabric/
     │   │
     │   ├── nms/
     │   │   ├── nms_top.sv                      # NMS controller: chooses 3x3/5x5 compare
-    │   │   ├── nms_linebuf.sv                  # score line buffers (two rows)
     │   │   └── nms_compare.sv                  # neighbor comparators and winner logic
     │   │
     │   ├── orientation/
